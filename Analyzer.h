@@ -108,6 +108,9 @@ public:
 
     void PlotandSavetoFileCOLZ(const char* nometh2);
     void PlotandSavetoFileDirectionalFull(const char* nomepic);
+    TH2F* PlotandSavetoFileCOLZ_fullSize(const char* nometh2);
+
+    std::vector<std::pair<double, double>> GetLinePoints(int slices, std::string mode);
 
     void Barycenter();
     void Barycenter(TH2F* Tr,double *X, double *Y);
