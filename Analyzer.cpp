@@ -384,12 +384,12 @@ fLineDirection(nullptr)
 	fmaxy = 2305 - TMath::MinElement(E-B,&Y[B]);
 	fminy = 2305 - TMath::MaxElement(E-B,&Y[B]);
 
-  fmaxx=fmaxx+30;
+    fmaxx=fmaxx+30;
 	fminx=fminx-30;
 	fmaxy=fmaxy+30;
 	fminy=fminy-30;
 
-  fnpixelx=fmaxx-fminx;
+    fnpixelx=fmaxx-fminx;
 	fnpixely=fmaxy-fminy;
 
   fTrack=new TH2F(Form("%s",nometh2),Form("%s",nometh2),fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
@@ -530,15 +530,31 @@ void Analyzer::SavetoFile(const char* nometh2)
  */
 void Analyzer::PlotandSavetoFileCOLZ(const char* nometh2)
 {
-  TCanvas* canv = new TCanvas("canv","canv",1500,1500);
+    TCanvas* canv = new TCanvas("canv","canv",1500,1500);
 
-  fTrack->Draw("COLZ");
-  canv->SetName(nometh2);
-  canv->Write();
-  canv->DrawClone();
-  delete canv;
+    fTrack->Draw("COLZ");
+    canv->SetName(nometh2);
+    canv->Write();
+    canv->DrawClone();
+    delete canv;
 
-  return;
+    return;
+}
+
+TH2F* Analyzer::PlotandSavetoFileCOLZ_fullSize(const char*  nometh2)
+{
+    TCanvas* canv = new TCanvas("canv","canv",1500,1500);
+
+    TH2F* full_pic_hist = new TH2F("full_pic_hist", "full_pic_hist", 2304, 0, 2304, 2304, 0, 2304);
+    full_pic_hist->Add(fTrack);
+
+    full_pic_hist->Draw("COLZ");
+    canv->SetName(nometh2);
+    canv->Write();
+    // canv->DrawClone();
+    delete canv;
+
+    return full_pic_hist;
 }
 
 /**
@@ -1426,6 +1442,52 @@ void Analyzer::FindPeak(double &xpeak, double &ypeak, double &xpeak_rebin, doubl
   xpeak_rebin=TrackRebin->GetXaxis()->GetBinCenter(x);
   ypeak_rebin=TrackRebin->GetYaxis()->GetBinCenter(y);
 
+}
+
+/**
+    * Returns equally spaced points inside the track or track direction line.
+*/
+std::vector<std::pair<double, double>> Analyzer::GetLinePoints(int slices, string mode) {
+
+    std::vector<std::pair<double, double>> points;
+
+    // Using the main axis line
+    if (mode == "axis") {
+
+        double xMin = fminx + 60;
+        double xMax = fmaxx - 60;
+
+        for (int i = 0; i < slices; ++i) {
+            double x = xMin + i * (xMax - xMin) / (slices - 1);
+            double y = fLineDirection->Eval(x);
+            points.emplace_back(x, y);
+            std::cout << "Point: (" << points[i].first << ", " << points[i].second << ")" << std::endl;
+        }
+    }
+
+    // Using the edges
+    if (mode == "edges") {
+
+        double xl,yl,xr,yr;
+        double slope = tan(AngleLineMaxRMS());
+
+        Edges(xl,yl,xr,yr,slope);
+
+        std::pair<double, double> p1 = {xl, yl};
+        std::pair<double, double> p2 = {xr, yr};
+
+        cout << "The edges are: p1 = (" << xl << "," << yl<<"); p2 = (" << xr << "," << yr << ")" << endl;
+        
+        for (int i = 0; i < slices; ++i) {
+            double t = static_cast<double>(i) / (slices - 1); // Linear interpolation factor
+            double x = p1.first + t * (p2.first - p1.first);
+            double y = p1.second + t * (p2.second - p1.second);
+            points.emplace_back(x, y);
+            std::cout << "Point: (" << points[i].first << ", " << points[i].second << ")" << std::endl;
+        }
+    }
+
+    return points;
 }
 
 //
