@@ -5,6 +5,7 @@ Tracks/
 *.root
 *.png
 *.out
+*.o
 *gif
 distributions/
 Reco/

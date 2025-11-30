@@ -29,6 +29,7 @@
 #include "TDecompSVD.h"
 #include "TLatex.h"
 #include "TLine.h"
+#include "TGaxis.h"
 
 using namespace std;
 
@@ -357,7 +358,7 @@ fLineDirection(nullptr)
   } */
 
   ///////  Original version
-  // /*
+  /*
 	fminx = TMath::MinElement(E-B,&X[B]);
 	fmaxx = TMath::MaxElement(E-B,&X[B]);
 	fminy = TMath::MinElement(E-B,&Y[B]);
@@ -382,34 +383,65 @@ fLineDirection(nullptr)
       fintegral+=Z[i];
     }
 	}
-  // */
-  /*
-  ///////   David's version, careful with rotations
+  */
 
-	fmaxx = 2305 - TMath::MinElement(E-B,&X[B]);
-	fminx = 2305 - TMath::MaxElement(E-B,&X[B]);
-	fmaxy = 2305 - TMath::MinElement(E-B,&Y[B]);
+
+  // July 2024 version - RUN 4
+  // for the most recent version of reco, due to change in the reco saving. Now x=x and y=y
+  // This requires to also change the way the tree is read!! 
+  // vector<int> XPix;               XPix.reserve(150000);           tree_cam->SetBranchAddress("redpix_ix",       XPix.data());  
+  // vector<int> YPix;               YPix.reserve(150000);           tree_cam->SetBranchAddress("redpix_iy",       YPix.data());
+
+	fminx = TMath::MinElement(E-B,&X[B]);
+	fmaxx = TMath::MaxElement(E-B,&X[B]);
 	fminy = 2305 - TMath::MaxElement(E-B,&Y[B]);
+	fmaxy = 2305 - TMath::MinElement(E-B,&Y[B]);
 
-    fmaxx=fmaxx+30;
+	fmaxx=fmaxx+30;
 	fminx=fminx-30;
 	fmaxy=fmaxy+30;
 	fminy=fminy-30;
 
-    fnpixelx=fmaxx-fminx;
+	fnpixelx=fmaxx-fminx;
 	fnpixely=fmaxy-fminy;
 
-  fTrack=new TH2F(Form("%s",nometh2),Form("%s",nometh2),fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
+	fTrack=new TH2F(Form("A%s",nometh2),Form("A%s",nometh2),fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
 
-	for(int i=B;i<E;i++){
-
+	for(int i=B;i<E;i++) {
+    
     if (Z[i]>0) {
       
-      fTrack->SetBinContent(fTrack->GetXaxis()->FindBin( 2305 - X[i]),fTrack->GetYaxis()->FindBin( 2305 - Y[i]),Z[i]); // cahnge david (rotation)
+      fTrack->SetBinContent(fTrack->GetXaxis()->FindBin(X[i]),fTrack->GetYaxis()->FindBin( 2305 - Y[i]),Z[i]);
       fintegral+=Z[i];
     }
 	}
- */
+  
+  /////   David's version, careful with rotations - RUN 3
+
+	// fmaxx = 2305 - TMath::MinElement(E-B,&X[B]);
+	// fminx = 2305 - TMath::MaxElement(E-B,&X[B]);
+	// fmaxy = 2305 - TMath::MinElement(E-B,&Y[B]);
+	// fminy = 2305 - TMath::MaxElement(E-B,&Y[B]);
+
+  //   fmaxx=fmaxx+30;
+	// fminx=fminx-30;
+	// fmaxy=fmaxy+30;
+	// fminy=fminy-30;
+
+  //   fnpixelx=fmaxx-fminx;
+	// fnpixely=fmaxy-fminy;
+
+  // fTrack=new TH2F(Form("%s",nometh2),Form("%s",nometh2),fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
+
+	// for(int i=B;i<E;i++){
+
+  //   if (Z[i]>0) {
+      
+  //     fTrack->SetBinContent(fTrack->GetXaxis()->FindBin( 2305 - X[i]),fTrack->GetYaxis()->FindBin( 2305 - Y[i]),Z[i]); // cahnge david (rotation)
+  //     fintegral+=Z[i];
+  //   }
+	// }
+ 
 
 	//fTrack->Rebin2D(2,2);
 	fPhiMainAxis=AngleLineMaxRMS();
@@ -609,20 +641,37 @@ void Analyzer::PlotandSavetoFileCOLZ(const char* nometh2)
     return;
 }
 
-TH2F* Analyzer::PlotandSavetoFileCOLZ_fullSize(const char*  nometh2)
-{
-    TCanvas* canv = new TCanvas("canv","canv",1500,1500);
+void Analyzer::PlotandSavetoFileCOLZ_fullSize(const char*  nometh2) {
 
-    TH2F* full_pic_hist = new TH2F("full_pic_hist", "full_pic_hist", 2304, 0, 2304, 2304, 0, 2304);
-    full_pic_hist->Add(fTrack);
+  TCanvas* canv = new TCanvas("full_pic","full_pic",1500,1500);
 
-    full_pic_hist->Draw("COLZ");
-    canv->SetName(nometh2);
-    canv->Write();
-    // canv->DrawClone();
-    delete canv;
+  TH2F* full_pic_hist = new TH2F(nometh2, nometh2, 2304, 0, 2304, 2304, 0, 2304);
 
-    return full_pic_hist;
+  int nBinsX = fTrack->GetNbinsX();
+  int nBinsY = fTrack->GetNbinsY();
+
+  int offsetX = fminx;
+  int offsetY = fminy;
+
+  // Iterate over the bins of the smaller histogram
+  for (int i = 1; i <= nBinsX; ++i) {
+    for (int j = 1; j <= nBinsY; ++j) {
+      double content = fTrack->GetBinContent(i, j);
+
+      int binX = offsetX + static_cast<int>(i);
+      int binY = offsetY + static_cast<int>(j);
+
+      if (binX <= full_pic_hist->GetNbinsX() && binY <= full_pic_hist->GetNbinsY()) {
+        full_pic_hist->SetBinContent(binX, binY, content);
+      }
+    }
+  }
+
+  full_pic_hist->Draw("COLZ");
+  canv->SetName(nometh2);
+  canv->DrawClone();
+  canv->Write();
+  delete canv;
 }
 
 /**
@@ -755,8 +804,8 @@ void Analyzer::SavePicDir(const char* nomepic){
  */
 void Analyzer::PlotandSavetoFileDirectionalFull(const char* nomepic){
 
-  TCanvas* canv = new TCanvas("canv","canv",800,800);
-  canv->Divide(2,2);
+  TCanvas* canv4 = new TCanvas("full4","full4",800,800);
+  canv4->Divide(2,2);
 
   TLegend* l = new TLegend();
   l->AddEntry((TObject*)0, Form("%f",fPhiDir/TMath::Pi()*180));
@@ -771,7 +820,7 @@ void Analyzer::PlotandSavetoFileDirectionalFull(const char* nomepic){
   l2->AddEntry((TObject*)0,Form("RMS=%f",fRMSOnMainAxis));
   l2->AddEntry((TObject*)0,Form("RMSNorm=%f",fRMSOnMainAxis/fintegral));
 
-  canv->cd(1);
+  canv4->cd(1);
   fTrack->Draw("COLZ");
   fBarPlot->Draw("SAMEP");
   fLineMaxRMS->Draw("SAME");
@@ -781,40 +830,41 @@ void Analyzer::PlotandSavetoFileDirectionalFull(const char* nomepic){
   TPad *padtitle = new TPad("padtitle", "padtitle",0.2,0.90,0.8,0.99);
   padtitle->Draw("SAME");
   padtitle->cd();
-  // padtitle->SetFillStyle(1);
   padtitle->SetFillColor(kWhite);
   auto tex = new TLatex(0.5,0.5,"Original");
   tex->SetTextAlign(22);
   tex->SetTextSize(0.5);
   tex->Draw();
 
-  canv->cd(2);
+  canv4->cd(2);
   fTrackTail->SetTitle("Track tail + IP");
   fTrackTail->Draw("COLZ");
   fIPPlot->Draw("SAMEP");
 
-  canv->cd(3);
+  canv4->cd(3);
   fScaledTrack->SetTitle("Impact Point");
   fScaledTrack->Draw("COLZ");
   fIPPlot->Draw("SAMEP");
   fLineDirection->Draw("SAME");
-  canv->cd(3)->SetLogz();
+  canv4->cd(3)->SetLogz();
   l->Draw("SAME");
 
-  canv->cd(4);
-  fTrack->SetTitle("Final Directionality Angle");
-  fTrack->Draw("COLZ");
+  canv4->cd(4);
+
+  TH2F* fTrackClone = (TH2F*)fTrack->Clone();   // The root file was generating errors when trying to draw the original histogram again. This is a workaround. 
+  fTrackClone->SetTitle("Final Directionality Angle");
+  fTrackClone->Draw("COLZ");
   fIPPlot->Draw("SAMEP");
   fLineDirection->SetLineColor(kBlack);
   fLineDirection->SetLineWidth(2);
   fLineDirection->SetLineStyle(9);
   fLineDirection->Draw("SAME");
+  l->Draw("SAME");
 
-  // canv->SaveAs(Form("Tracks/%s.png",nomepic));
-  canv->SetName(nomepic);
-  canv->Write();
-  canv->DrawClone();
-  delete canv;
+  canv4->Write(nomepic);
+  canv4->DrawClone();
+
+  delete canv4;
 }
 
 /**
@@ -1094,21 +1144,114 @@ void Analyzer::ApplyThr(double EnThr){
   }
 }
 
-/**
- * Identifies the impact point of the track by analyzing the tail of the distribution.
- *
- * @param nometh2 Name for the histogram representing the track's tail.
- * This method updates the internal state related to the impact point coordinates.
- */
+// /**
+//  * Identifies the impact point of the track by analyzing the tail of the distribution.
+//  *
+//  * @param nometh2 Name for the histogram representing the track's tail.
+//  * This method updates the internal state related to the impact point coordinates.
+//  */
+// void Analyzer::ImpactPoint(const char* nometh2){
+
+//   fTrackTail = new TH2F(nometh2,nometh2,fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
+
+//   fTrackTail->Rebin2D(2,2);
+
+//   Float_t rminN=0.7;
+//   Double_t X,Y,Z;
+//   Int_t NSelPoints;
+//   Float_t PointSkew,PointDistCm;
+
+//   std::vector<float> XIntPointPrev;
+//   std::vector<float> YIntPointPrev;
+
+// // Original version
+//   // do{
+//   //   rminN+=0.03;
+//   //   NSelPoints=0;
+
+//   // Updated version for speed
+//   do{
+
+//     //vdavid1
+//     if(NSelPoints>3000){
+//       rminN+=1.0;
+//     } else {
+//       rminN+=0.5;
+//     }
+
+//     //v1
+//     // if(NSelPoints>3000){
+//     //   rminN+=9.0;
+//     // } else {
+//     //   rminN+=2.0;
+//     // }
+
+//     //v2
+//     // if(NSelPoints>800){
+//     //   rminN+=9.0;
+//     // } else {
+//     //   rminN+=3.0;
+//     // }
+
+//     //v3
+//     // if(NSelPoints>4000){
+//     //   rminN+=2.0;
+//     // } else {
+//     //   rminN+=0.5;
+//     // }
+
+//     NSelPoints=0;
+
+//     fTrackTail->Reset();
+
+//     for(int j=0;j<fTrack->GetXaxis()->GetNbins();j++){
+//       for(int l=0;l<fTrack->GetYaxis()->GetNbins();l++){
+
+//         X=fTrack->GetXaxis()->GetBinCenter(j);
+//         Y=fTrack->GetYaxis()->GetBinCenter(l);
+//         Z=fTrack->GetBinContent(j,l);
+
+//         PointSkew=GetPointSkew(X,Y);
+//         PointDistCm=PDistCm(X,Y);
+
+//         if(PointSkew>0 && PointDistCm> rminN && Z>0){
+//           fTrackTail->SetBinContent(fTrackTail->GetXaxis()->FindBin(X),fTrackTail->GetYaxis()->FindBin(Y),Z);
+//           NSelPoints++;
+//         }//chiudo if selection
+//       }//chiuso for l
+//     }//chiudo for j (fill histos)
+
+//     Barycenter(fTrackTail,&fXIPPrev,&fYIPPrev);
+
+//     XIntPointPrev.push_back(fXIPPrev);
+//     YIntPointPrev.push_back(fYIPPrev);
+
+//   }while(NSelPoints>fNPIP);
+
+//   Barycenter(fTrackTail,&fXIP,&fYIP);
+//   fXIPPrev=XIntPointPrev[(int)(XIntPointPrev.size()/2)];
+//   fYIPPrev=YIntPointPrev[(int)(YIntPointPrev.size()/2)];
+
+//   fIPPlot = new TGraph();
+//   fIPPlot->SetName("IPPLot");
+//   fIPPlot->SetPoint(0,fXIP,fYIP);
+//   fIPPlot->SetMarkerStyle(8);
+
+// }
+
+/* Fiorina's version of the Impact Point function to correction the direciton bug */
+/* To be tested with alphas */
+
 void Analyzer::ImpactPoint(const char* nometh2){
 
   fTrackTail = new TH2F(nometh2,nometh2,fnpixelx,fminx,fmaxx,fnpixely,fminy,fmaxy);
 
-  fTrackTail->Rebin2D(2,2);
+  //fTrackTail->Rebin2D(2,2);
 
-  Float_t rminN=0.7;
+  Float_t rminN=0.;
+  //Float_t rminN=0.7;
   Double_t X,Y,Z;
-  Int_t NSelPoints;
+  Int_t NSelPoints=0;
   Float_t PointSkew,PointDistCm;
 
   std::vector<float> XIntPointPrev;
@@ -1119,29 +1262,22 @@ void Analyzer::ImpactPoint(const char* nometh2){
   //   rminN+=0.03;
   //   NSelPoints=0;
 
+  // first point is the Barycenter from PCA only
+  Barycenter(fTrack,&fXIPPrev,&fYIPPrev);
+  XIntPointPrev.push_back(fXIPPrev);
+  YIntPointPrev.push_back(fYIPPrev);
+
   // Updated version for speed
   do{
-
-    //v1
-    if(NSelPoints>3000){
-      rminN+=9.0;
-    } else {
+    if(NSelPoints-fNPIP>6*fNPIP){
       rminN+=2.0;
+    } else {
+      //rminN+=2.0;
+      rminN+=.5;
     }
 
-    //v2
-    // if(NSelPoints>800){
-    //   rminN+=9.0;
-    // } else {
-    //   rminN+=3.0;
-    // }
-
-    //v3
-    // if(NSelPoints>4000){
-    //   rminN+=2.0;
-    // } else {
-    //   rminN+=0.5;
-    // }
+    //Original version 
+    //rminN+=0.03;
 
     NSelPoints=0;
 
@@ -1161,19 +1297,28 @@ void Analyzer::ImpactPoint(const char* nometh2){
           fTrackTail->SetBinContent(fTrackTail->GetXaxis()->FindBin(X),fTrackTail->GetYaxis()->FindBin(Y),Z);
           NSelPoints++;
         }//chiudo if selection
+
       }//chiuso for l
     }//chiudo for j (fill histos)
+
 
     Barycenter(fTrackTail,&fXIPPrev,&fYIPPrev);
 
     XIntPointPrev.push_back(fXIPPrev);
     YIntPointPrev.push_back(fYIPPrev);
 
+
   }while(NSelPoints>fNPIP);
 
   Barycenter(fTrackTail,&fXIP,&fYIP);
-  fXIPPrev=XIntPointPrev[(int)(XIntPointPrev.size()/2)];
-  fYIPPrev=YIntPointPrev[(int)(YIntPointPrev.size()/2)];
+
+  int PrevIndex=(int)(XIntPointPrev.size()/2);
+  if ((int)XIntPointPrev.size()<=2){
+    PrevIndex=0;
+  }
+
+  fXIPPrev=XIntPointPrev[PrevIndex];
+  fYIPPrev=YIntPointPrev[PrevIndex];
 
   fIPPlot = new TGraph();
   fIPPlot->SetName("IPPLot");
@@ -1181,6 +1326,8 @@ void Analyzer::ImpactPoint(const char* nometh2){
   fIPPlot->SetMarkerStyle(8);
 
 }
+
+/* ------------------------------------------------------------------------------------------ */
 
 /**
  * Generates a scaled version of the track histogram, emphasizing the region around the impact point.
@@ -1336,7 +1483,7 @@ void Analyzer::Edges(double &Xl, double &Yl, double &Xr, double &Yr, double slop
  * @param x1, x2 Range limits for profiling. Defaults cover the entire range.
  * @return A pointer to the generated TH1D profile histogram.
  */
-TH1D* Analyzer::FillProfile(bool longitudinal, float x1, float x2)
+TH1D* Analyzer::FillProfile(bool longitudinal,  const char* nometh2, float x1, float x2)
 {
 
   double xl,yl,xr,yr;
@@ -1348,7 +1495,13 @@ TH1D* Analyzer::FillProfile(bool longitudinal, float x1, float x2)
 
   Edges(xl,yl,xr,yr,slope);
   int binmax = (int)sqrt(pow((xl-xr),2)+pow((yl-yr),2));
-  TH1D* TrackProfile=new TH1D("TrackProf","TrackProf",binmax+2,0,binmax+2);
+
+  const char* name;
+  if (longitudinal == true) name = "long";
+  else name = "trans";
+
+  if (binmax < -1E6 || binmax > 1E6) binmax = 0;
+  TH1D* TrackProfile=new TH1D(Form("%s__Prof_%s",  nometh2, name),Form("%s__Prof_%s",  nometh2, name),binmax+2,0,binmax+2);
 
   double Xp, Yp, Zp;
 
@@ -1612,14 +1765,14 @@ std::vector<std::pair<double, double>> Analyzer::GetLinePoints(int slices, strin
         std::pair<double, double> p1 = {xl, yl};
         std::pair<double, double> p2 = {xr, yr};
 
-        cout << "The edges are: p1 = (" << xl << "," << yl<<"); p2 = (" << xr << "," << yr << ")" << endl;
+        // cout << "The edges are: p1 = (" << xl << "," << yl<<"); p2 = (" << xr << "," << yr << ")" << endl;
         
         for (int i = 0; i < slices; ++i) {
             double t = static_cast<double>(i) / (slices - 1); // Linear interpolation factor
             double x = p1.first + t * (p2.first - p1.first);
             double y = p1.second + t * (p2.second - p1.second);
             points.emplace_back(x, y);
-            std::cout << "Point: (" << points[i].first << ", " << points[i].second << ")" << std::endl;
+            // std::cout << "Point: (" << points[i].first << ", " << points[i].second << ")" << std::endl;
         }
     }
 

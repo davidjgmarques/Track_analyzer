@@ -91,8 +91,17 @@ public:
     inline TF1* GetLineMaxRMS() const  {return fLineMaxRMS;}
     inline double GetXIP() const {return fXIP;}
     inline double GetYIP() const {return fYIP;}
+
+    /* Fiorina's correction to direction bug */
+    inline double GetXIPPrev() const {return fXIPPrev;}
+    inline double GetYIPPrev() const {return fYIPPrev;}
+    /* ------------------------------------- .*/
+    
     inline double GetDir() const {return fPhiDir;}
     inline double PDistCm(double X, double Y) const {return sqrt( ( (X-fXbar)*(X-fXbar) + (Y-fYbar)*(Y-fYbar) ));}
+
+    inline double Getfxmin() const {return fminx;}
+    inline double Getfymin() const {return fminy;}
 
     //Setters for directionality
     inline void SetWScal(float a) {fwScal=a;}
@@ -110,7 +119,8 @@ public:
 
     void PlotandSavetoFileCOLZ(const char* nometh2);
     void PlotandSavetoFileDirectionalFull(const char* nomepic);
-    TH2F* PlotandSavetoFileCOLZ_fullSize(const char* nometh2);
+    void PlotandSavetoFileCOLZ_fullSize(const char*  nometh2);
+
 
     std::vector<std::pair<double, double>> GetLinePoints(int slices, std::string mode);
 
@@ -128,8 +138,9 @@ public:
     void ImprCorrectAngle();
 
     void Edges(double &Xl, double &Yl, double &Xr, double &Yr, double slope);
-    TH1D* FillProfile(bool longitudinal, float x1=0, float x2=2304);
+    TH1D* FillProfile(bool longitudinal,  const char* nometh2 = "", float x1=0, float x2=2304);
     TH1D* CutProfile(TH1D* profile, double height=0.0025);
+    TF1*  FitProfile(TH1D* profile);
     TH1D* FillProfileX();
     TH1D* FillProfileY();
     void AnglePCA(double &ang);
